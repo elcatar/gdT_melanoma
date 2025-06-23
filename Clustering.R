@@ -34,47 +34,37 @@ dato <- str_sub(str_replace_all(Sys.Date(),"-",""), 3, -1)
 mycols_b <- c("#bdbdbd","#d9d9d9","#FDDBC7","#F4A582","#D6604D","#B2182B","#67001F")
 mycols <- rev(c('#a50026','#d73027','#f46d43','#fdae61','#fee090','#e0f3f8','#abd9e9','#74add1','#4575b4','#313695'))
 
-# VB lab folder
-# path <- paste("U:/Sund/Public/T-Cell-Signalling-and-Development/VB Lab/10x_data/10xRNA_H-melanoma-PBMC-gdT",
-#               sep = "/")
 
-# External HD
-# External HD
-path <- "E:/Sequencing/Melanoma-project"
+# HD
+# path <- "E:/Sequencing/Melanoma-project"
+
 
 setwd(path)
 
 data_path <- paste(path, "/data",sep = "")
-#plots_path <- paste(path, "/data/plots/03.cluster-res_tcr-filt",sep = "")
-plots_path <- paste(path, "/data/plots/03.cluster-res",sep = "")
+plots_path <- paste(path, "/data/plots/03.cluster-res_tcr-filt",sep = "")
+#plots_path <- paste(path, "/data/plots/03.cluster-res",sep = "")
 
 
 
 
-### #########################   read data    ####################################
+##### #########################   read data    ####################################
 ################################################################################.
 
 gdT.melanoma <- readRDS(paste(data_path,"/10xRNA_H-melanoma-PBMC-gdT_int-hb.rds",
                               sep = ""))
 
-# gdT.melanoma <- readRDS(paste(data_path,"/10xRNA_H-melanoma-PBMC-gdT_tcr.rds",
-#                               sep = ""))
-# 
 
 
-############################   clustering    ###################################
+
+# ###########################   initial clustering    ##########################
 ################################################################################.
 gc()
-# Basic clustering was already done in previous script
-# Re-cluster at different resolutions to pick best one
+# Basic clustering
 
 gdT.melanoma <- FindVariableFeatures(gdT.melanoma,
                                      selection.method = "vst",
                                      nfeatures = 2000) #increased it if necessary
-
-# Test <- FindVariableFeatures(gdT.melanoma,
-#                              selection.method = "vst",
-#                              nfeatures =10000) #increased it if necessary
 
 
 top10 <- head(VariableFeatures(gdT.melanoma))
@@ -84,17 +74,6 @@ p2 <- LabelPoints(plot = p1,
                   repel = T)
 
 p1+p2
-
-
-# top10.2 <- head(VariableFeatures(Test))
-# p3 <- VariableFeaturePlot(Test)
-# p4 <- LabelPoints(plot = p1,
-#                   points = top10.2,
-#                   repel = T)
-#
-# p3+p4
-
-# x <- VariableFeatures(Test)
 
 
 gdT.melanoma <- ScaleData(gdT.melanoma,
@@ -116,33 +95,23 @@ gdT.melanoma <- RunPCA(gdT.melanoma,
 
 
 ElbowPlot(gdT.melanoma, ndims = 60)
-ggsave(paste(dato,"ElbowPlot_60PCs.png",sep = "_"), 
-       path = plots_path,
-       width = 20, 
-       height = 15, 
-       units = "cm",
-       dpi = 600, 
-       scale=1.5, 
-       bg = "white",
-       limitsize = FALSE)
+# ggsave(paste(dato,"ElbowPlot_60PCs.png",sep = "_"), 
+#        path = plots_path,
+#        width = 20, 
+#        height = 15, 
+#        units = "cm",
+#        dpi = 600, 
+#        scale=1.5, 
+#        bg = "white",
+#        limitsize = FALSE)
 
 
 gdT.melanoma <- FindNeighbors(gdT.melanoma, dims = 1:30,
                               reduction = "harmony")
 
 gdT.melanoma <- FindClusters(gdT.melanoma,
-                             resolution = c(0.1, 0.2, 0.3, 0.4, 0.5,
-                                            0.6, 0.7, 0.8, 0.9, 1),
-                             cluster.name = c("integrated_res.0.1",
-                                              "integrated_res.0.2",
-                                              "integrated_res.0.3",
-                                              "integrated_res.0.4",
-                                              "integrated_res.0.5",
-                                              "integrated_res.0.6",
-                                              "integrated_res.0.7",
-                                              "integrated_res.0.8",
-                                              "integrated_res.0.9",
-                                              "integrated_res.1"))
+                             resolution = 0.1,
+                             cluster.name = "integrated_res.0.1")
 
 
 # Calculate UMAP again and name it as default
@@ -151,132 +120,41 @@ gdT.melanoma <- RunUMAP(gdT.melanoma,
                         reduction = "harmony",
                         reduction.name = "umap")
 
+DimPlot(subset(gdT.melanoma, downsample=10000), group.by = "integrated_res.0.1", 
+        label = TRUE, reduction = "umap")
 
 
 
 ## ##################      Filter contaminating cells    ########################
 ################################################################################.
 
-
+ 
 ##### ###############        TCRab expressing cells   ###########################
 
-# abTCR_genes <-  c(rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRAV")],
-#                   rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRB")])
-# 
-# aTCR <-  c(rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRAV")])
-
 # filter only TRAV and TRAJ genes because gdT can express rearanged beta chain
-abTCR_genes <-  c(rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRAV")],
-                  rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRAJ")])
+aTCR_genes <-  c(rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRAV")],
+                 rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRAJ")])
 
 
 TCRd<- c("TRDV1",    
          "TRDV2",    
          "TRDV3")
 
-Idents(gdT.melanoma) <- gdT.melanoma@meta.data$integrated_res.0.4
-Idents(gdT.melanoma) <- gdT.melanoma@meta.data$sampleID
+DoHeatmap(gdT.melanoma,
+          features = c(TCRd, aTCR_genes))
 
-# DoHeatmap(gdT.melanoma,
-#           features = abTCR_genes)  
-
-
-indexes <- list(c(1:12),
-                c(13:24),
-                c(25:36),
-                c(37:49))
-
-for (i in 1:length(indexes)) {
-    
-    x <- indexes[[i]]
-    
-    p <- FeaturePlot(gdT.melanoma,
-                     features = abTCR_genes[x],
-                     reduction = "umap")
-    
-    ggsave(paste(dato, i, "abTCR-feature.png",sep = "_"),
-           path = paste0(plots_path, "/abTCR-feature"),
-           plot = p,
-           width = 30,
-           height = 20,
-           units = "cm",
-           dpi = 600,
-           scale=1.5,
-           limitsize = FALSE)
-}
-
-
-
-
-
-Idents(gdT.melanoma) <- gdT.melanoma@meta.data$HTO_classification.global
-p <- VlnPlot(gdT.melanoma,
-             features = abTCR_genes[1:49],
-             pt.size = 0.1,
-             alpha = 0.1,
-             ncol = 12)
-
-ggsave(paste(dato, "aTCR-vln.png",sep = "_"),
-       path = paste0(plots_path, "/abTCR-feature"),
-       plot = p,
-       width = 30,
-       height = 20,
-       units = "cm",
-       dpi = 600,
-       scale=1.5,
-       limitsize = FALSE)
-
-
-
-Idents(gdT.melanoma) <- gdT.melanoma@meta.data$sampleID
-
-gene <- c("TRAV29DV5", "TRAV38-2DV8", "TRAV14DV4", "TRAV36DV7")
-
-
-for (i in 1:length(gene)) {
-    
-    p <- VlnPlot(gdT.melanoma,
-                 features = gene[i],
-                 pt.size = 0.1,
-                 alpha = 0.3,
-                 ncol = 12) +
-        theme(legend.position = "none")
-    
-    ggsave(paste(dato, "abTCR-sample", i, ".png",sep = "_"),
-           path = paste0(plots_path, "/abTCR-feature"),
-           plot = p[[1]],
-           width = 30,
-           height = 10,
-           units = "cm",
-           dpi = 600,
-           scale=1.5,
-           limitsize = FALSE)
-}
-
-
-
-Idents(gdT.melanoma) <- gdT.melanoma@meta.data$outcome.lane
-DoHeatmap(gdT.melanoma, 
-          features = c(TCRd, "TRBV21-1", "TRAV36DV7", "TRBJ2-3")) + 
-    scale_fill_gradientn(colours = mycols)
-
-DoHeatmap(gdT.melanoma, 
-          features = c("TRDV1", "TRBV21-1", "TRAV36DV7", "TRBJ2-3")) + 
-    scale_fill_gradientn(colours = mycols)
-
-f <- subset(gdT.melanoma,
-            subset = outcome.lane == "NR_F")
-
-
-
-a <- FeaturePlot(f,
-                 features = c("TRDV1","TRBV21-1", "TRAV36DV7") ,
-                 reduction = "umap")
-
+ 
 
 
 ###### unwanted cells------------------------------------------------------------------------
-genelist <- abTCR_genes
+aTCR_genes
+aTCR_genes <- aTCR_genes[! aTCR_genes %in% c("TRAV14DV4", # Vd4 cells
+                                             "TRAV29DV5", # Vd5 cells
+                                             "TRAV23DV6", # Vd6 cells
+                                             
+                                             "TRAV36DV7",
+                                             "TRAV38-2DV8")]
+genelist <- aTCR_genes
 ### init empty list
 genelist_subset_query <- ""
 
@@ -294,30 +172,55 @@ genelist_subset_query
 
 abCells <- subset(gdT.melanoma,
                   subset = `TRAV18`> 0 |`TRAV21`> 0 |`TRAV22`> 0 |`TRAV24`> 0 |
-                      `TRAV29DV5`> 0 |`TRAV38-2DV8`> 0 |`TRAV41`> 0 |`TRAV5`> 0 |
-                      `TRAV8-4`> 0 |`TRAV8-5`> 0 |`TRAV13-2`> 0 |`TRAV14DV4`> 0 |
-                      `TRAV19`> 0 |`TRAV26-1`> 0 |`TRAV27`> 0 |`TRAV36DV7`> 0 |
-                      `TRAV38-1`> 0 |`TRAV23DV6`> 0 |`TRAV26-2`> 0 |`TRAV35`> 0 |
-                      `TRAV39`> 0 |`TRAV40`> 0 |`TRAV4`> 0 |`TRAV12-2`> 0 |`TRAV13-1`> 0 |
-                      `TRAV17`> 0 |`TRAV30`> 0 |`TRAV12-3`> 0 |`TRAV31`> 0 |`TRAV34`> 0 |
-                      `TRAV12-1`> 0 |`TRAV1-2`> 0 |`TRAV9-2`> 0 |`TRAJ49`> 0 |`TRAJ46`> 0 |
-                      `TRAJ45`> 0 |`TRAJ44`> 0 |`TRAJ42`> 0 |`TRAJ38`> 0 |`TRAJ35`> 0 |
-                      `TRAJ58`> 0 |`TRAJ52`> 0 |`TRAJ41`> 0 |`TRAJ39`> 0 |`TRAJ54`> 0 |
-                      `TRAJ37`> 0 |`TRAJ43`> 0 |`TRAJ36`> 0 |`TRAJ34`> 0)
-
-
-# DoHeatmap(gdT.melanoma,
-#           features = abTCR_genes)
+                  `TRAV41`> 0 |`TRAV5`> 0 |`TRAV8-4`> 0 |`TRAV8-5`> 0 |
+                  `TRAV13-2`> 0 |`TRAV19`> 0 |`TRAV26-1`> 0 |`TRAV27`> 0 |
+                  `TRAV38-1`> 0 |`TRAV26-2`> 0 |`TRAV35`> 0 |`TRAV39`> 0 |
+                  `TRAV40`> 0 |`TRAV4`> 0 |`TRAV12-2`> 0 |`TRAV13-1`> 0 |
+                  `TRAV17`> 0 |`TRAV30`> 0 |`TRAV12-3`> 0 |`TRAV31`> 0 |
+                  `TRAV34`> 0 |`TRAV12-1`> 0 |`TRAV1-2`> 0 |`TRAV9-2`> 0 |
+                  `TRAJ49`> 0 |`TRAJ46`> 0 |`TRAJ45`> 0 |`TRAJ44`> 0 |
+                  `TRAJ42`> 0 |`TRAJ38`> 0 |`TRAJ35`> 0 |`TRAJ58`> 0 |
+                  `TRAJ52`> 0 |`TRAJ41`> 0 |`TRAJ39`> 0 |`TRAJ54`> 0 |
+                  `TRAJ37`> 0 |`TRAJ43`> 0 |`TRAJ36`> 0 |`TRAJ34`> 0)
 
 
 
+##### ###############            TCRVD expression      #########################
+delta_genes <-  c(rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRDV")])
 
+DoHeatmap(gdT.melanoma,
+          features = c(TCRd))
+
+VlnPlot(gdT.melanoma,
+        features =  delta_genes,
+        pt.size = 0.1,
+        alpha = 0.1,
+        ncol = 2)
+
+TCRd_genes <- c(delta_genes,
+                "TRAV14DV4", # Vd4 cells
+                "TRAV29DV5", # Vd5 cells
+                "TRAV23DV6", # Vd6 cells
+                
+                "TRAV36DV7",
+                "TRAV38-2DV8")
+
+
+###### no delta Tcr -------------------------------------------------------------
+
+noDelta <- subset(gdT.melanoma,
+                  subset = `TRDV1`== 0 &`TRDV2`== 0 &`TRDV3`== 0 &  
+                      `TRAV14DV4`== 0 & `TRAV29DV5`== 0 & `TRAV23DV6`== 0 & 
+                      `TRAV36DV7`== 0 & `TRAV38-2DV8`== 0)
+
+
+table(noDelta$integrated_res.0.1)
 
 
 ##### ##############        Identify cycling cells   ###########################
 
 
-Idents(gdT.melanoma) <- gdT.melanoma@meta.data$integrated_res.0.2
+Idents(gdT.melanoma) <- gdT.melanoma@meta.data$integrated_res.0.1
 VlnPlot(gdT.melanoma, features =  c("nCount_RNA", "percent_mt","G2M.Score",
                                     "S.Score", "percent_ribo", "percent_hb"),
         pt.size = 0.1,
@@ -368,16 +271,16 @@ cyclingCells <- subset(gdT.melanoma,
                        subset = S.Score > 0.2)
 
 
-
+ 
 
 
 
 ##### ##############       Monocytes / Macrophages      ########################
 
 # Make sure we are calculating DEGs for the right identities
-Idents(gdT.melanoma) <- gdT.melanoma@meta.data$integrated_res.0.2
+Idents(gdT.melanoma) <- gdT.melanoma@meta.data$integrated_res.0.1
 
-table(gdT.melanoma@meta.data$integrated_res.0.5)
+table(gdT.melanoma@meta.data$integrated_res.0.1)
 
 DEG.pos <- FindAllMarkers(gdT.melanoma,
                           only.pos = T,           # only including UPregulated DEGs per cluster?
@@ -432,37 +335,39 @@ macro <- subset(gdT.melanoma,
 
 
 ##### ##################        Filtering      #################################
-
+ncol(gdT.melanoma)
 # before filtering there is 97091 cells in dataset
 
-gdT.melanoma <- subset(gdT.melanoma, # filter only TRA genes becasue some gd can have re-arranged beta chain
+gdT.melanoma <- subset(gdT.melanoma, # filter only TRA genes because some gd can have re-arranged beta chain
                        subset = `TRAV18`== 0 &`TRAV21`== 0 &`TRAV22`== 0 &`TRAV24`== 0 &
-                           `TRAV29DV5`== 0 &`TRAV38-2DV8`== 0 &`TRAV41`== 0 &`TRAV5`== 0 &
-                           `TRAV8-4`== 0 &`TRAV8-5`== 0 &`TRAV13-2`== 0 &`TRAV14DV4`== 0 &
-                           `TRAV19`== 0 &`TRAV26-1`== 0 &`TRAV27`== 0 &`TRAV36DV7`== 0 &
-                           `TRAV38-1`== 0 &`TRAV23DV6`== 0 &`TRAV26-2`== 0 &`TRAV35`== 0 &
-                           `TRAV39`== 0 &`TRAV40`== 0 &`TRAV4`== 0 &`TRAV12-2`== 0 &`TRAV13-1`== 0 &
-                           `TRAV17`== 0 &`TRAV30`== 0 &`TRAV12-3`== 0 &`TRAV31`== 0 &`TRAV34`== 0 &
-                           `TRAV12-1`== 0 &`TRAV1-2`== 0 &`TRAV9-2`== 0 &`TRAJ49`== 0 &`TRAJ46`== 0 &
-                           `TRAJ45`== 0 &`TRAJ44`== 0 &`TRAJ42`== 0 &`TRAJ38`== 0 &`TRAJ35`== 0 &
-                           `TRAJ58`== 0 &`TRAJ52`== 0 &`TRAJ41`== 0 &`TRAJ39`== 0 &`TRAJ54`== 0 &
+                           `TRAV41`== 0 &`TRAV5`== 0 &`TRAV8-4`== 0 &`TRAV8-5`== 0 &
+                           `TRAV13-2`== 0 &`TRAV19`== 0 &`TRAV26-1`== 0 &`TRAV27`== 0 &
+                           `TRAV38-1`== 0 &`TRAV26-2`== 0 &`TRAV35`== 0 &`TRAV39`== 0 &
+                           `TRAV40`== 0 &`TRAV4`== 0 &`TRAV12-2`== 0 &`TRAV13-1`== 0 &
+                           `TRAV17`== 0 &`TRAV30`== 0 &`TRAV12-3`== 0 &`TRAV31`== 0 &
+                           `TRAV34`== 0 &`TRAV12-1`== 0 &`TRAV1-2`== 0 &`TRAV9-2`== 0 &
+                           `TRAJ49`== 0 &`TRAJ46`== 0 &`TRAJ45`== 0 &`TRAJ44`== 0 &
+                           `TRAJ42`== 0 &`TRAJ38`== 0 &`TRAJ35`== 0 &`TRAJ58`== 0 &
+                           `TRAJ52`== 0 &`TRAJ41`== 0 &`TRAJ39`== 0 &`TRAJ54`== 0 &
                            `TRAJ37`== 0 &`TRAJ43`== 0 &`TRAJ36`== 0 &`TRAJ34`== 0)
 
-# afer TCRab filtering there is 89198 cells left; we filtered out 7893 cells
+ncol(gdT.melanoma)
+# afer TCRa filtering there is 94373 cells left; we filtered out 2718 cells
+
 
 gdT.melanoma <- subset(gdT.melanoma,
                        subset = S.Score < 0.2)
 
+ncol(gdT.melanoma)
+# after S.score filtering we have 94116 cells left; we filtered out 257 cells
 
 
-# after S.score filtering we have 88966 cells left; we filtered out 232 cells
 
-old <- gdT.melanoma
 gdT.melanoma <- subset(gdT.melanoma,
                        subset = FCN1 == 0 | VCAN == 0 | MS4A6A == 0)
 
-
-# 88920 cells leftcells left, 46 filtered
+ncol(gdT.melanoma)
+# 94070 cells left, 46 filtered
 
 VlnPlot(gdT.melanoma, features =  c("FCN1", "VCAN", "MS4A6A"),
         pt.size = 0.3,
@@ -479,7 +384,88 @@ ggsave(paste(dato,"macrophage-after-filter_vln.png",sep = "_"),
        limitsize = FALSE)
 
 
-table(gdT.melanoma$integrated_res.0.2)
+
+gdT.melanoma <- subset(gdT.melanoma,
+                       subset = `TRDV1`> 0 | `TRDV2`> 0 |`TRDV3`> 0 |  
+                           `TRAV14DV4`> 0 | `TRAV29DV5`> 0 | `TRAV23DV6`> 0 | 
+                           `TRAV36DV7`> 0 | `TRAV38-2DV8`> 0)
+
+
+ncol(gdT.melanoma)
+# 84537 cells left, 9533 filtered
+
+table(gdT.melanoma$integrated_res.0.1)
+
+
+
+
+# ###########################   Clustering    ###################################
+################################################################################.
+gc()
+# Re-cluster at different resolutions to pick best one
+
+gdT.melanoma <- FindVariableFeatures(gdT.melanoma,
+                                     selection.method = "vst",
+                                     nfeatures = 2000) #increased it if necessary
+
+
+
+top10 <- head(VariableFeatures(gdT.melanoma))
+p1 <- VariableFeaturePlot(gdT.melanoma)
+p2 <- LabelPoints(plot = p1,
+                  points = top10,
+                  repel = T)
+
+p1+p2
+
+
+
+gdT.melanoma <- RunPCA(gdT.melanoma,
+                       npcs = 60,
+                       verbose = TRUE)
+
+
+
+ElbowPlot(gdT.melanoma, ndims = 60)
+ggsave(paste(dato,"ElbowPlot_60PCs.png",sep = "_"), 
+       path = plots_path,
+       width = 20, 
+       height = 15, 
+       units = "cm",
+       dpi = 600, 
+       scale=1.5, 
+       bg = "white",
+       limitsize = FALSE)
+
+
+gdT.melanoma <- FindNeighbors(gdT.melanoma, dims = 1:40,
+                              reduction = "harmony")
+
+gdT.melanoma <- FindClusters(gdT.melanoma,
+                             resolution = c(0.1, 0.2, 0.3, 0.4, 0.5,
+                                            0.6, 0.7, 0.8, 0.9, 1),
+                             cluster.name = c("integrated_res.0.1",
+                                              "integrated_res.0.2",
+                                              "integrated_res.0.3",
+                                              "integrated_res.0.4",
+                                              "integrated_res.0.5",
+                                              "integrated_res.0.6",
+                                              "integrated_res.0.7",
+                                              "integrated_res.0.8",
+                                              "integrated_res.0.9",
+                                              "integrated_res.1"))
+
+
+# Calculate UMAP again and name it as default
+gdT.melanoma <- RunUMAP(gdT.melanoma,
+                        dims = 1:40,
+                        reduction = "harmony",
+                        reduction.name = "umap")
+
+
+
+
+
 
 
 #### ############################      QC     ###################################
@@ -559,10 +545,18 @@ DimPlot(gdT.melanoma,
         split.by ="orig.ident",
         ncol = 5,
         raster = F) 
-
 ggsave(paste(dato,"lane.png",sep = "_"),
        path = paste(plots_path, "integration_check", sep = "/"),
-       width = 20,
+       width = 25,
+       height = 15,
+       units = "cm",
+       dpi = 600,
+       scale=2,
+       limitsize = FALSE)
+
+ggsave(paste(dato,"lane.svg",sep = "_"),
+       path = paste(plots_path, "integration_check", sep = "/"),
+       width = 25,
        height = 15,
        units = "cm",
        dpi = 600,
@@ -594,7 +588,7 @@ DimPlot(gdT.melanoma,
 
 ggsave(paste(dato,"hashtag.png",sep = "_"),
        path = paste(plots_path, "integration_check", sep = "/"),
-       width = 23,
+       width = 30,
        height = 6,
        units = "cm",
        dpi = 600,
@@ -610,11 +604,24 @@ ggsave(paste(dato,"hashtag.png",sep = "_"),
 ################################################################################.
 gc()
 vd1 <- subset(gdT.melanoma, 
-              TRDV1 > 0 & TRDV2 == 0 & TRDV3 == 0) 
+              TRDV1 > 0 & TRDV2 == 0 & TRDV3 == 0 &
+                  `TRAV14DV4`== 0 & `TRAV29DV5`== 0 & 
+                  `TRAV23DV6`== 0 & `TRAV36DV7`== 0 & 
+                  `TRAV38-2DV8`== 0) 
+
 vd2 <- subset(gdT.melanoma, 
-              TRDV2 > 0 & TRDV1 == 0 & TRDV3 == 0 & TRAV29DV5 == 0) 
+              TRDV2 > 0 & TRDV1 == 0 & TRDV3 == 0 & 
+                  `TRAV14DV4`== 0 & `TRAV29DV5`== 0 & 
+                  `TRAV23DV6`== 0 & `TRAV36DV7`== 0 & 
+                  `TRAV38-2DV8`== 0)
+
 vd3 <- subset(gdT.melanoma, 
-              TRDV3 > 0 & TRDV1 == 0 & TRDV2 == 0 & TRAV29DV5 == 0)
+              TRDV3 > 0 & TRDV1 == 0 & TRDV2 == 0 &
+                  `TRAV14DV4`== 0 & `TRAV29DV5`== 0 & 
+                  `TRAV23DV6`== 0 & `TRAV36DV7`== 0 & 
+                  `TRAV38-2DV8`== 0)
+
+
 
 ##### #######################       Vd1      ###################################
 gc()
@@ -666,6 +673,22 @@ vd1 <- RunUMAP(vd1,
                reduction.name = "umap")
 
 
+Idents(vd1) <- vd1@meta.data$integrated_res.0.2
+DimPlot(vd1, 
+        reduction = "umap", 
+        split.by ="orig.ident",
+        ncol = 5,
+        raster = F) 
+
+ggsave(paste(dato,"vd1_lane.svg",sep = "_"),
+       path = paste(plots_path, "integration_check", sep = "/"),
+       width = 25,
+       height = 15,
+       units = "cm",
+       dpi = 600,
+       scale=2,
+       limitsize = FALSE)
+
 
 ##### #######################       Vd2      ###################################
 gc()
@@ -714,6 +737,24 @@ vd2 <- RunUMAP(vd2,
                dims = 1:30,
                reduction = "harmony",
                reduction.name = "umap")
+
+
+Idents(vd2) <- vd2@meta.data$integrated_res.0.2
+DimPlot(vd2, 
+        reduction = "umap", 
+        split.by ="orig.ident",
+        ncol = 5,
+        raster = F) 
+
+ggsave(paste(dato,"vd2_lane.svg",sep = "_"),
+       path = paste(plots_path, "integration_check", sep = "/"),
+       width = 25,
+       height = 15,
+       units = "cm",
+       dpi = 600,
+       scale=2,
+       limitsize = FALSE)
+
 
 
 
@@ -768,7 +809,21 @@ vd3 <- RunUMAP(vd3,
 
 
 
+Idents(vd3) <- vd3@meta.data$integrated_res.0.2
+DimPlot(vd3, 
+        reduction = "umap", 
+        split.by ="orig.ident",
+        ncol = 5,
+        raster = F) 
 
+ggsave(paste(dato,"vd3_lane.svg",sep = "_"),
+       path = paste(plots_path, "integration_check", sep = "/"),
+       width = 25,
+       height = 15,
+       units = "cm",
+       dpi = 600,
+       scale=2,
+       limitsize = FALSE)
 
 
 

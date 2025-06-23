@@ -21,6 +21,7 @@ library(Seurat)
 library(tidyr)
 library(tidyverse)
 library(RColorBrewer)
+library(svglite)
 
 
 
@@ -35,13 +36,9 @@ mycols_b <- c("#bdbdbd","#d9d9d9","#FDDBC7","#F4A582","#D6604D","#B2182B","#6700
 mycols <- rev(c('#a50026','#d73027','#f46d43','#fdae61','#fee090','#e0f3f8','#abd9e9','#74add1','#4575b4','#313695'))
 
 
-# VB lab folder
-# path <- paste("U:/Sund/Public/T-Cell-Signalling-and-Development/VB Lab/10x_data/10xRNA_H-melanoma-PBMC-gdT",
-#               sep = "/")
+# HD
+# path <- "E:/Sequencing/Melanoma-project"
 
-# External HD
-# External HD
-path <- "E:/Sequencing/Melanoma-project"
 
 setwd(path)
 
@@ -56,6 +53,8 @@ plots_path1 <- paste(plots_path_gen, "/10x-data-1",sep = "")
 plots_path_vd1 <- paste(plots_path_gen, "10x-data-2/vd1", sep = "/")
 plots_path_vd2 <- paste(plots_path_gen, "10x-data-2/Vd2", sep = "/")
 plots_path_vd3 <- paste(plots_path_gen, "10x-data-2/Vd3", sep = "/")
+
+table_path <- paste(plots_path_gen, "/DEG_tables_paper", sep = "")
 
 
 
@@ -346,7 +345,12 @@ ggsave(paste(dato,"UMAP.res.0.1.svg",sep = "_"),
 
 ###### TCR dotplots ------------------------------------------------------------
 TCR_genes <- c(rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRDV")],
-               rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRGV")])
+               rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRGV")],
+               "TRAV14DV4", # Vd4 cells
+               "TRAV29DV5", # Vd5 cells
+               "TRAV23DV6", # Vd6 cells
+               "TRAV36DV7",
+               "TRAV38-2DV8")
 DotPlot(gdT.melanoma, features = TCR_genes) + RotatedAxis() + coord_flip()
 ggsave(paste(dato,"TCR-dotplot_all.svg",sep = "_"), 
        path = plots_path1,
@@ -357,7 +361,10 @@ ggsave(paste(dato,"TCR-dotplot_all.svg",sep = "_"),
        scale=1.5, 
        limitsize = FALSE)
 
-TCR_genes2 <- TCR_genes[! TCR_genes %in% c("TRGV6", "TRGV5P", "TRGV1")]
+
+TCR_genes2 <- c(rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRDV")],
+               rownames(gdT.melanoma[["RNA"]]$data)[startsWith(rownames(gdT.melanoma[["RNA"]]$data),"TRGV")])
+TCR_genes2 <- TCR_genes2[!TCR_genes2 %in% c("TRGV6", "TRGV5P", "TRGV1")]
 DotPlot(gdT.melanoma, features = TCR_genes2) + RotatedAxis() + coord_flip()
 ggsave(paste(dato,"TCR-dotplot.svg",sep = "_"), 
        path = plots_path1,
@@ -376,11 +383,14 @@ Idents(gdT.melanoma) <- gdT.melanoma@meta.data$integrated_res.0.1
 
 feature_genes <- c("TRDV1", "TRDV2", "TRDV3",
                    "TBX21", "SLAMF7", "CCL5",
-                   "GATA3",
-                   "RORC","IL23R", "CCR6",
+                   "GATA3","RORC","IL23R", "CCR6",
+                   "IFNG", "IL17C", "IL17D", "CD69",
                    "GZMA", "GZMB", "GZMK", "GZMH",
                    "PDCD1","CTLA4","TIGIT", 
-                   "LAG3", "HAVCR2", "TOX", "ZBTB16")
+                   "LAG3", "HAVCR2", "TOX", "ZBTB16",
+                   "KIR2DL1", "KIR2DL3", "KIR2DL4",
+                   "KIR3DL1", "KIR3DL2")
+
 
 ps <- FeaturePlot(subset(gdT.melanoma, downsample=10000),
                   features = feature_genes,
@@ -403,6 +413,47 @@ for (i in 1:length(feature_genes)) {
            limitsize = FALSE)
     
 }
+
+
+
+###### Violin plots -----------------------------------------------------------
+Idents(gdT.melanoma) <- gdT.melanoma@meta.data$integrated_res.0.1
+vln_genes <- c( "PDCD1","CTLA4","TIGIT", 
+                "LAG3", "HAVCR2", "TOX",
+                "KIR3DX1",
+                "KIR2DL3",
+                "KIR2DL1",
+                "KIR2DL4",
+                "KIR3DL1",
+                "KIR3DL2",
+                "KIRREL3",
+                "KIR3DL3",
+                "KIRREL2"
+)
+
+
+ps <- VlnPlot(gdT.melanoma,
+              features = vln_genes,
+              pt.size = 0)
+
+for (i in 1:length(vln_genes)) {
+    
+    p <- ps[[i]]
+    gene <- vln_genes[i]
+    
+    ggsave(paste(dato,"gen",  "vln", gene, ".svg",sep = "_"),
+           plot = p,
+           path = str_c(plots_path1, "/VlnPlots"),
+           width = 8.5,
+           height = 8,
+           units = "cm",
+           dpi = 300,
+           scale=1.5,
+           limitsize = FALSE)
+    
+}
+
+
 
 
 ###### Cluster abundancies -----------------------------------------------------
@@ -477,11 +528,12 @@ for (i in pts) {
     
 }
 
-
+write.csv(c.freq,
+          str_c(plots_path1, "/cluster-frequencies.csv"))
 
 
 ###### Heatmaps         --------------------------------------------------------
-cluster_genes <- c("KLRC1",
+cluster_genes_old <- c("KLRC1",
                    "IL7R",
                    "GZMK",
                    "THEMIS",
@@ -527,12 +579,130 @@ cluster_genes <- c("KLRC1",
                    "S1PR1")
 
 
+cluster_genes1 <- c("TRDV2",
+                   "KLRC1",
+                   "IL7R",
+                   "THEMIS",
+                   "CD27",
+                   "GZMK",
+                   "SELL",
+                   "LTB",
+                   "IFNGR1",
+                   "NFKBIA",
+                   
+                   "TRDV1",    
+                   "TIGIT",
+                   "KLRC3",
+                   "NCR1",
+                   "KIR3DL1",
+                   "KIR3DL2",
+                   "KIR2DL3",
+                   "CD8A",
+                   "TOX",
+                   "FCGR3A",
+                   
+                   "KLF12",
+                   "RUNX1",
+                   "NCOA2",
+                   "ZBTB20",
+                   "BRAF",
+                   "XIST",
+                   "MED13L",
+                   "FAM19A1",
+                   "IMMP2L",
+                   "FTX",
+                   
+                   "MAL",  
+                   "CCR7",
+                   "LEF1",
+                   "NELL2",
+                   "LTB",
+                   "TCF7",
+                   "TNFSF8",
+                   "BACH2",
+                   "CD27",
+                   "BCL2")
+
+
+cluster_genes2 <- c("TRDV2",
+                    "TRGV9",
+                    "KLRC1",
+                    "THEMIS",
+                    "GZMK",
+                    "IFNGR1",
+                    "CEBPD",
+                    "IL18RAP",
+                    "KLRB1",
+                    "RSP26",
+                    
+                    "TRDV1",    
+                    "TIGIT",
+                    "FCGR3A",
+                    "CD244",
+                    "GZMH",
+                    "KIR3DL1",
+                    "KIR3DL2",
+                    "KIR2DL3",
+                    "TOX",
+                    "EOMES",
+                    
+                    "KLF12",
+                    "RUNX1",
+                    "NCOA2",
+                    "ZBTB20",
+                    "BRAF",
+                    "NCOA1",
+                    "ANK3",
+                    "MED13L",
+                    "ARL15",
+                    "IMMP2L",
+                    
+                    "LTB",
+                    "LEF1",
+                    "MAL",  
+                    "CCR7",
+                    "SELL",
+                    "IL7R",
+                    "NELL2",
+                    "LTB",
+                    "TCF7",
+                    "BACH2")
+
+
 Idents(gdT.melanoma) <- gdT.melanoma@meta.data$integrated_res.0.1
 DoHeatmap(subset(gdT.melanoma, downsample=400),
-          features = cluster_genes)+ 
+          features = cluster_genes_old)+ 
     scale_fill_gradientn(colours = mycols)
 
-ggsave(paste(dato,"DEG_clusters_Heatmap.pdf",sep = "_"),
+ggsave(paste(dato,"DEG_clusters_Heatmap_OLD.pdf",sep = "_"),
+       path = plots_path1,
+       width = 15,
+       height = 15,
+       units = "cm",
+       dpi = 300,
+       scale=1.5,
+       limitsize = FALSE)
+
+
+DoHeatmap(subset(gdT.melanoma, downsample=400),
+          features = cluster_genes1)+ 
+    scale_fill_gradientn(colours = mycols)
+
+ggsave(paste(dato,"DEG_clusters_Heatmap_1.pdf",sep = "_"),
+       path = plots_path1,
+       width = 15,
+       height = 15,
+       units = "cm",
+       dpi = 300,
+       scale=1.5,
+       limitsize = FALSE)
+
+
+DoHeatmap(subset(gdT.melanoma, downsample=400),
+          features = cluster_genes2)+ 
+    scale_fill_gradientn(colours = mycols)
+
+ggsave(paste(dato,"DEG_clusters_Heatmap_2.pdf",sep = "_"),
        path = plots_path1,
        width = 15,
        height = 15,
@@ -544,6 +714,7 @@ ggsave(paste(dato,"DEG_clusters_Heatmap.pdf",sep = "_"),
 
 
 
+# AP1 transcription factors
 
 ap1.genes <- c("JUN", "JUNB", "JUND",
                "FOS", "FOSB", "FOSL1", "FOSL2",
@@ -571,8 +742,26 @@ ggsave(paste(dato,"AP-1_Heatmap.pdf",sep = "_"),
 
 
 
+# Top 10 DEGs between patient groups
 
+top10 <- DEG.grp.gen %>% 
+    filter(p_val_adj < 0.05) %>% 
+    group_by(cluster) %>% 
+    top_n(n = 10, wt = avg_log2FC)
 
+Idents(gdT.melanoma) <- gdT.melanoma$group
+DoHeatmap(gdT.melanoma, 
+          features = top10$gene) + 
+    scale_fill_gradientn(colours = mycols) 
+
+ggsave(paste(dato,"DEG-beween-grps.pdf",sep = "_"),
+       path = plots_path1,
+       width = 15,
+       height = 25,
+       units = "cm",
+       dpi = 600,
+       scale=1.5,
+       limitsize = FALSE)
 
 
 

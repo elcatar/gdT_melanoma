@@ -30,12 +30,7 @@ rm(list=ls())
 #date in format year_month_day
 dato <- str_sub(str_replace_all(Sys.Date(),"-",""), 3, -1)
 
-
-# VB lab folder
-# path <- paste("U:/Sund/Public/T-Cell-Signalling-and-Development/VB Lab/10x_data/10xRNA_H-melanoma-PBMC-gdT",
-#               sep = "/")
-
-# External HD
+# HD
 path <- "D:/Sequencing/Melanoma-project"
 
 setwd(path)
